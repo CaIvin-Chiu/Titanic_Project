@@ -1,0 +1,90 @@
+---
+title: "Titanic_analysis"
+author: "Calvin"
+date: "11/08/2021"
+output: html_document
+---
+
+```{r}
+# The goal of this analysis is to analyze what type of passenger are more
+# likely to survive base on list of features and build a predictive model
+# to make prediction.
+```
+
+
+```{r loading_data}
+library(tidyverse)
+
+titanic.train <- read.csv("train.csv")
+titanic.test <- read.csv("test.csv")
+
+# Check each variable type and what data looks like
+str(titanic.train)
+
+
+```
+
+```{r cleaning data}
+
+# Convert some variables to proper type
+
+titanic.train$Survived <- factor(titanic.train$Survived, levels = c(1,0),
+                                                         labels = c(1,0))
+titanic.train$Pclass <- as.factor(titanic.train$Pclass)
+
+# check missing values
+colSums(is.na(titanic.train))
+colSums(titanic.train== "")
+
+# 
+```
+
+
+```{r predict missing age using other features}
+
+# Use row with non-null Age value to predict the remaining missing Age values
+
+with_age <- subset(titanic.train, !(is.na(Age)) )
+no_age <- subset(titanic.train, (is.na(Age)))
+
+
+# select potential features for predictor
+
+age_predictor <- lm(Age~ Survived + Pclass + Sex + SibSp + Parch + Fare + Embarked, data = with_age)
+
+summary(age_predictor)
+
+# By Backward model selection
+
+# delete Sex
+
+age_predictor <- lm(Age~ Survived + Pclass + SibSp + Parch + Fare + Embarked, data = with_age)
+
+summary(age_predictor)
+
+# delete Parch
+
+age_predictor <- lm(Age~ Survived + Pclass + SibSp  + Fare + Embarked, data = with_age)
+
+summary(age_predictor)
+
+# delete Embarked
+
+age_predictor <- lm(Age~ Survived + Pclass + SibSp  + Fare, data = with_age)
+
+summary(age_predictor)
+
+# All variables are statistically significant, use above model to predict missing age
+predicted_age <- predict(age_predictor, newdata = no_age)
+no_age$Age <- predicted_age
+
+# make a copy with titanic.train where all missing age are filled
+titanic.train1 <- rbind(no_age,with_age)
+titanic.train1 <- arrange(titanic.train1, PassengerId)
+```
+
+```{r analyze Survived vs features}
+str_split(titanic.train$Cabin,pattern="",n=2)
+
+```
+
