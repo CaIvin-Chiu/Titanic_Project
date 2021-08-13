@@ -111,6 +111,6 @@ titanic.train <- arrange(titanic.train, PassengerId)
 
 # Analysis
 ```{r analyze Survived vs features}
-abaa
+abaaa
 ```
 
