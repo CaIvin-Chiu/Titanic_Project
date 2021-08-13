@@ -5,18 +5,21 @@ date: "11/08/2021"
 output: html_document
 ---
 
-```{r}
-# The goal of this analysis is to analyze what type of passenger are more
-# likely to survive base on list of features and build a predictive model
-# to make prediction.
-```
+# Goal
+The goal of this analysis is to analyze what type of passenger are more
+likely to survive base on list of features and build a predictive model
+to make prediction.
 
 
 ```{r loading_data}
 library(tidyverse)
 
-titanic.train <- read.csv("train.csv")
-titanic.test <- read.csv("test.csv")
+# read data
+original.titanic.train <- read.csv("train.csv")
+original.titanic.test <- read.csv("test.csv")
+
+# Make a temporary copy
+titanic.train <- original.titanic.train
 
 # Check each variable type and what data looks like
 str(titanic.train)
@@ -36,7 +39,29 @@ titanic.train$Pclass <- as.factor(titanic.train$Pclass)
 colSums(is.na(titanic.train))
 colSums(titanic.train== "")
 
-# 
+#fill mode value to Embarked
+
+table(titanic.train$Embarked)
+subset(titanic.train, Embarked == "")
+titanic.train[c(62,830),]$Embarked <- "S"
+
+# Split first letter of "Cabin" 
+with_cabin <- subset(titanic.train, Cabin != "")
+cabin_vector <- with_cabin$Cabin
+str_split(cabin_vector,pattern="",n=2) -> cabin_list
+cabin_letterlist <- c()
+j <- 1
+
+for (i in cabin_list){
+  cabin_letterlist[j] <- i[1]
+  j <- j+1
+}
+
+with_cabin$Cabin_letter <- cabin_letterlist
+
+# Merge data back to titanic set
+
+merge(titanic.train,with_cabin, all = TRUE) -> titanic.train
 ```
 
 
@@ -79,12 +104,13 @@ predicted_age <- predict(age_predictor, newdata = no_age)
 no_age$Age <- predicted_age
 
 # make a copy with titanic.train where all missing age are filled
-titanic.train1 <- rbind(no_age,with_age)
-titanic.train1 <- arrange(titanic.train1, PassengerId)
+titanic.train <- rbind(no_age,with_age)
+titanic.train <- arrange(titanic.train, PassengerId)
 ```
 
+
+# Analysis
 ```{r analyze Survived vs features}
-str_split(titanic.train$Cabin,pattern="",n=2)
 
 ```
 
