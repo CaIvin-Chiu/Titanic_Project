@@ -15,6 +15,7 @@ to make prediction.
 ```{r loading_data}
 library(tidyverse)
 library(ggplot2)
+library("EnvStats")
 
 # read data
 original.titanic.train <- read.csv("train.csv")
@@ -204,7 +205,49 @@ titanic.train %>% group_by(Pclass,Sex) %>%
   summarize(count = n()) %>% mutate(Proportion_Pclass = prop.table(count))
 
 
+```
+```{r Survived vs Fare}
+
+# Box-plot visualization
+
+titanic.train %>% ggplot(., aes(x=Survived,y=Fare)) + geom_boxplot()
+# It seems like two group have different mean/median, need further analysis
+# Also, the data present some outliers that result skewed data.
+
+boxplot(titanic.train$Fare~titanic.train$Survived, xlab="Survived", ylab="Fare")$out
+# 71 outlier are present, this is roughly 8% of the data, we cannot simply exclude them.
+
+# We will do Mann-Whitney U test (a non-parametric test for two independent set)
+# to see if median difference are significant
+
+titanic.train %>% filter(Survived == 1) -> titanic.survive1
+titanic.train %>% filter(Survived == 0) -> titanic.survive0
+
+wilcox.test(titanic.train$Fare~titanic.train$Survived)
+
+# The result of test reject null hypothesis and conclude there's difference in median.
+
+# Additionally, we can take samples from two distribution to see if mean of sample average 
+# are different
+
+sample_fare_survive1 <- c()
+sample_fare_survive0 <- c()
+
+# Sample from two different group (Survived = 1 or 0)
+for (i in 1:100){
+   sample_fare_survive1[i] <- mean(sample(titanic.survive1$Fare, size = 100))
+   sample_fare_survive0[i] <- mean(sample(titanic.survive0$Fare, size = 100))
+}
 
 
+# By central limit theorem, distribution of sample average is normal, we can use t-test
+t.test(sample_fare_survive1,sample_fare_survive0)
+
+# The result reject null hypothesis and conclude the sample average are different between
+# two groups, which means Survived are associated with Fare.
+
+
+# Conclusion:
+# Fare are associated with Survived
 ```
 
