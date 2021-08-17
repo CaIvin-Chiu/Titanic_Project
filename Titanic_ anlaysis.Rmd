@@ -6,6 +6,7 @@ output: html_document
 ---
 
 # Goal
+
 The goal of this analysis is to analyze what type of passenger are more
 likely to survive base on list of features and build a predictive model
 to make prediction.
@@ -13,6 +14,7 @@ to make prediction.
 
 ```{r loading_data}
 library(tidyverse)
+library(ggplot2)
 
 # read data
 original.titanic.train <- read.csv("train.csv")
@@ -65,7 +67,7 @@ merge(titanic.train,with_cabin, all = TRUE) -> titanic.train
 ```
 
 
-```{r predict missing age using other features}
+```{r predict missing age using lm model with other features}
 
 # Use row with non-null Age value to predict the remaining missing Age values
 
@@ -103,14 +105,106 @@ summary(age_predictor)
 predicted_age <- predict(age_predictor, newdata = no_age)
 no_age$Age <- predicted_age
 
-# make a copy with titanic.train where all missing age are filled
+# Merge and rearrange data
 titanic.train <- rbind(no_age,with_age)
 titanic.train <- arrange(titanic.train, PassengerId)
 ```
 
 
-# Analysis
-```{r analyze Survived vs features}
-abaaaaa
+# Analysis, analyze Survived vs other features
+
+```{r number of Survived, echo=TRUE}
+
+titanic.train %>% group_by(Survived) %>% summarize(count = n()) %>%
+  mutate(Proportion = prop.table(count))
+
+titanic.train %>% ggplot(., aes(x=Survived, fill=Survived)) + geom_bar() + 
+  labs(title="Number of Survived \n",subtitle ="0 = Not Survived \n1 = Survived")
+
+```
+
+
+```{r Survived vs Gender, echo=TRUE}
+
+# table count survive by gender
+
+titanic.train %>% group_by(Survived,Sex)  %>%  
+  summarize(count = n()) %>% mutate(Proportion_Survived = prop.table(count))
+
+# Visualization
+
+titanic.train %>% ggplot(., aes(x=Survived, fill=Sex)) + geom_bar() +
+labs(title="Survived vs Gender \n",subtitle ="0 = Not Survived \n1 = Survived")
+
+titanic.train %>% ggplot(., aes(x=Survived, fill=Survived)) + geom_bar() + facet_wrap(~Sex) +
+labs(title="Survived vs Gender \n",subtitle ="0 = Not Survived \n1 = Survived")
+
+# chi-square test
+
+chisq.test(titanic.train$Survived, titanic.train$Sex)
+
+# The result p-value = 2.2e-16, we can reject null hypothesis and conclude there's
+# association between survived and gender.
+
+# Odd Ratio
+
+gender_OR <- (gender_table[2,1]/gender_table[1,1])/(gender_table[2,2]/gender_table[1,2])
+
+# The odd ratio is 12.35, the odd of female Survived is 12 times than the odd of male Survived.
+
+# Relative Risk
+
+gender_RR <- (gender_table[2,2]/male_total)/(gender_table[1,2]/female_total)
+
+# The risk of being a male is 3.14 times more than being a female.
+
+# Conclusion: 
+# Female are much more likely to survived in Titanic scenario.
+```
+
+```{r Survived vs pclass and Gender, echo=TRUE}
+
+# Pclass margin total
+titanic.train %>% group_by(Survived, Pclass) %>% summarize(count = n()) %>%   
+  mutate(Proportion_Survived = prop.table(count))
+
+prop.table(table(titanic.train$Pclass,titanic.train$Survived, dnn = c("Pclass","Survived")))
+
+titanic.train %>% group_by(First_class_Survived = Survived) %>% filter(Pclass == "1" ) %>% 
+  summarize(count = n(), Proportion = n()/Pclass_count[1,2])
+
+titanic.train %>% group_by(Second_class_Survived = Survived) %>% filter(Pclass == "2" ) %>% 
+  summarize(count = n(), Proportion = n()/Pclass_count[2,2])
+
+titanic.train %>% group_by(Third_class_Survived = Survived) %>% filter(Pclass == "3" ) %>% 
+  summarize(count = n(), Proportion = n()/Pclass_count[3,2])
+
+# Visualizaiton
+
+titanic.train %>% ggplot(., aes(x=Sex, fill=Survived)) + geom_bar() + facet_wrap(~Pclass) +
+  labs(title="Survived vs Pclass and Gender \n",subtitle ="0 = Not Survived \n1 = Survived")
+
+# By observation, pClass seems to have association with Survived. But we also want to take
+# gender into account.
+
+# chi-square test with fixed gender
+
+titanic.train %>% filter(Sex == "male") -> titanic.male
+chisq.test(x=titanic.male$Survived, y = titanic.male$Pclass)
+
+titanic.train %>% filter(Sex == "female") -> titanic.female
+chisq.test(x=titanic.female$Survived, y = titanic.female$Pclass)
+
+# Both test's result reject null hypothesis and we can conclude there's association between
+# Pclass and Survived.
+
+# proportion of Gender in each Pclass
+
+titanic.train %>% group_by(Pclass,Sex) %>%
+  summarize(count = n()) %>% mutate(Proportion_Pclass = prop.table(count))
+
+
+
+
 ```
 
