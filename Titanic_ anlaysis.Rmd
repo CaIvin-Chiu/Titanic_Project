@@ -132,6 +132,10 @@ titanic.train %>% ggplot(., aes(x=Survived, fill=Survived)) + geom_bar() +
 titanic.train %>% group_by(Survived,Sex)  %>%  
   summarize(count = n()) %>% mutate(Proportion_Survived = prop.table(count))
 
+gender_table <- table(titanic.train$Survived,titanic.train$Sex)
+male_total <-sum(gender_table[1,2],gender_table[2,2])
+female_total <-sum(gender_table[1,1],gender_table[2,1])
+
 # Visualization
 
 titanic.train %>% ggplot(., aes(x=Survived, fill=Sex)) + geom_bar() +
@@ -149,13 +153,13 @@ chisq.test(titanic.train$Survived, titanic.train$Sex)
 
 # Odd Ratio
 
-gender_OR <- (gender_table[2,1]/gender_table[1,1])/(gender_table[2,2]/gender_table[1,2])
+gender_OR <- (gender_table[1,1]/gender_table[1,2])/(gender_table[2,1]/gender_table[2,2])
 
 # The odd ratio is 12.35, the odd of female Survived is 12 times than the odd of male Survived.
 
 # Relative Risk
 
-gender_RR <- (gender_table[2,2]/male_total)/(gender_table[1,2]/female_total)
+gender_RR <- (gender_table[2,2]/male_total)/(gender_table[2,1]/female_total)
 
 # The risk of being a male is 3.14 times more than being a female.
 
@@ -165,20 +169,9 @@ gender_RR <- (gender_table[2,2]/male_total)/(gender_table[1,2]/female_total)
 
 ```{r Survived vs pclass and Gender, echo=TRUE}
 
-# Pclass margin total
+# Pclass vs Suvive count and proportion of Pclass for two group Survive = 1 , Survive = 0 
 titanic.train %>% group_by(Survived, Pclass) %>% summarize(count = n()) %>%   
   mutate(Proportion_Survived = prop.table(count))
-
-prop.table(table(titanic.train$Pclass,titanic.train$Survived, dnn = c("Pclass","Survived")))
-
-titanic.train %>% group_by(First_class_Survived = Survived) %>% filter(Pclass == "1" ) %>% 
-  summarize(count = n(), Proportion = n()/Pclass_count[1,2])
-
-titanic.train %>% group_by(Second_class_Survived = Survived) %>% filter(Pclass == "2" ) %>% 
-  summarize(count = n(), Proportion = n()/Pclass_count[2,2])
-
-titanic.train %>% group_by(Third_class_Survived = Survived) %>% filter(Pclass == "3" ) %>% 
-  summarize(count = n(), Proportion = n()/Pclass_count[3,2])
 
 # Visualizaiton
 
@@ -188,7 +181,7 @@ titanic.train %>% ggplot(., aes(x=Sex, fill=Survived)) + geom_bar() + facet_wrap
 # By observation, pClass seems to have association with Survived. But we also want to take
 # gender into account.
 
-# chi-square test with fixed gender
+# chi-square test with fixed gender, test whethere Pclass associated with Survived
 
 titanic.train %>% filter(Sex == "male") -> titanic.male
 chisq.test(x=titanic.male$Survived, y = titanic.male$Pclass)
@@ -220,8 +213,8 @@ boxplot(titanic.train$Fare~titanic.train$Survived, xlab="Survived", ylab="Fare")
 # We will do Mann-Whitney U test (a non-parametric test for two independent set)
 # to see if median difference are significant
 
-titanic.train %>% filter(Survived == 1) -> titanic.survive1
-titanic.train %>% filter(Survived == 0) -> titanic.survive0
+titanic.survive1 <- titanic.train %>% filter(Survived == 1) 
+titanic.survive0 <- titanic.train %>% filter(Survived == 0)
 
 wilcox.test(titanic.train$Fare~titanic.train$Survived)
 
