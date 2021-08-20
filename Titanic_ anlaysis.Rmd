@@ -12,10 +12,21 @@ likely to survive base on list of features and build a predictive model
 to make prediction.
 
 
-```{r loading_data}
-library(tidyverse)
-library(ggplot2)
+```{r loading package}
+
+library(tidyverse) # data cleaning and manipulation
+library(ggplot2) # ggplot
 library("EnvStats")
+library(rpart) # for fitting decision trees
+library(rpart.plot) #for plotting decision trees
+library("caret") # Use to split data (i.e training set and test set)
+library(coin) # mood median test
+library(randomForest) # for random forest model building
+
+```
+
+
+```{r loading data}
 
 # read data
 original.titanic.train <- read.csv("train.csv")
@@ -23,10 +34,11 @@ original.titanic.test <- read.csv("test.csv")
 
 # Make a temporary copy
 titanic.train <- original.titanic.train
+titanic.test <- original.titanic.test
 
 # Check each variable type and what data looks like
 str(titanic.train)
-
+str(titanic.test)
 
 ```
 
@@ -34,8 +46,7 @@ str(titanic.train)
 
 # Convert some variables to proper type
 
-titanic.train$Survived <- factor(titanic.train$Survived, levels = c(1,0),
-                                                         labels = c(1,0))
+titanic.train$Survived <- as.factor(titanic.train$Survived)
 titanic.train$Pclass <- as.factor(titanic.train$Pclass)
 
 # check missing values
@@ -115,6 +126,9 @@ titanic.train <- arrange(titanic.train, PassengerId)
 # Analysis, analyze Survived vs other features
 
 ```{r number of Survived, echo=TRUE}
+
+titanic.survive1 <- titanic.train %>% filter(Survived == 1) 
+titanic.survive0 <- titanic.train %>% filter(Survived == 0)
 
 titanic.train %>% group_by(Survived) %>% summarize(count = n()) %>%
   mutate(Proportion = prop.table(count))
@@ -199,6 +213,20 @@ titanic.train %>% group_by(Pclass,Sex) %>%
 
 
 ```
+```{r Survived vs Age}
+
+# Box-plot visualization
+
+titanic.train %>% ggplot(., aes(x=Survived,y=Age)) + geom_boxplot()
+
+# t-test, two set are fairly normal distribution
+t.test(titanic.survive1$Age,titanic.survive0$Age)
+
+# The result reject null hypothesis, conclude that the Age difference between
+# Survived and not Survived is (0.42, 4.18)
+
+```
+
 ```{r Survived vs Fare}
 
 # Box-plot visualization
@@ -210,13 +238,8 @@ titanic.train %>% ggplot(., aes(x=Survived,y=Fare)) + geom_boxplot()
 boxplot(titanic.train$Fare~titanic.train$Survived, xlab="Survived", ylab="Fare")$out
 # 71 outlier are present, this is roughly 8% of the data, we cannot simply exclude them.
 
-# We will do Mann-Whitney U test (a non-parametric test for two independent set)
-# to see if median difference are significant
-
-titanic.survive1 <- titanic.train %>% filter(Survived == 1) 
-titanic.survive0 <- titanic.train %>% filter(Survived == 0)
-
-wilcox.test(titanic.train$Fare~titanic.train$Survived)
+# We will do mood median test to see if median difference are significant
+median_test(Fare~Survived, data=titanic.train)
 
 # The result of test reject null hypothesis and conclude there's difference in median.
 
@@ -242,5 +265,153 @@ t.test(sample_fare_survive1,sample_fare_survive0)
 
 # Conclusion:
 # Fare are associated with Survived
+
 ```
+
+```{r Survived vs Cabin}
+
+# Test if first Cabin letter associate with Survived
+chisq.test(x = titanic.train$Cabin_letter,titanic.train$Survived)
+
+# The result do not reject null hypothesis, we can not conclude there's association.
+# It would not be a realiable feature.
+
+```
+
+```{r Survived vs Embarked}
+
+chisq.test(titanic.train$Embarked,titanic.train$Survived)
+
+# The result reject null hypothesis and conclude there's association.
+
+chisq.test(titanic.train$Embarked,titanic.train$Survived)
+chisq.test(titanic.train$Embarked,titanic.train$Pclass)
+
+titanic.train %>% ggplot(., aes(x=Embarked,fill=Survived)) + geom_bar(position = "dodge") +
+  labs(title = "Survived vs Embarked")
+  
+
+# From observation, Embarked is associated with Survived. However, Embarked is also
+# associated with Gender and Pclass.
+# People embarked at port Q,S are mostly in Third class.
+# People embarked at port C are mostly in First class.
+
+titanic.train %>% ggplot(., aes(x=Embarked,fill=Pclass)) + geom_bar(position = "dodge")
+
+```
+
+# Building Model
+
+```{r clean test data}
+str(titanic.test)
+
+# Similarly need to clean test dataset as how we clean train dataset
+
+# Convert some variables to proper type
+
+titanic.test$Pclass <- as.factor(titanic.test$Pclass)
+
+# check missing values
+colSums(is.na(titanic.test))
+colSums(titanic.train== "")
+
+# predict age for test set
+
+titanic.test %>% filter(is.na(Age)) -> test_no_age
+titanic.test %>% filter(!(is.na(Age))) -> test_with_age
+
+# Backward model selection
+test_age_predict <- lm(Age ~ Pclass + SibSp, data=titanic.test)
+test_predicted.age <- predict(test_age_predict, newdata = test_no_age)
+test_no_age$Age <- test_predicted.age
+
+# Merge two set and rearrange
+titanic.test <- rbind(test_no_age,test_with_age)
+titanic.test <- arrange(titanic.test, PassengerId)
+
+# Fill median value to missing Fare
+titanic.test %>% filter(is.na(Fare))
+titanic.test[titanic.test$PassengerId==1044,]$Fare <- median(titanic.test$Fare, na.rm=TRUE)
+
+
+
+```
+
+
+```{r Logistic Regression Model}
+
+# Logistic model, use relevant feature and 
+# variable are selected by backward model selection
+pred_log.model <- glm(Survived ~ Sex + SibSp + Age + Pclass,
+                      data = titanic.train, family = "binomial")
+summary(pred_log.model)
+
+# predict result using above model
+log_result <- predict(pred_log.model,newdata = titanic.test, type = "response")
+
+# Merge passengerID and predicted Survived
+output <- data.frame(PassengerId = original.titanic.test$PassengerId)
+output$Survived <- log_result
+output$Survived <- ifelse(output$Survived > 0.5, 1, 0)
+
+write.csv(output, file= "Titanic_logistic_prediction.csv", row.names=FALSE)
+
+# Logistic regression Accuracy Result: 75.83%
+
+```
+
+```{r decision tree}
+# decision tree model using relevant features
+decision_tree <- rpart(Survived ~Sex + SibSp + Age + Pclass + Fare + Embarked, 
+                       data = titanic.train, cp = 0.001)
+# cp control the complexity of the tree, default = 0.01
+
+# Visualization of tree
+prp(decision_tree)
+
+# predict whether survived
+decision_result <- predict(decision_tree, newdata = titanic.test)
+decision_result[,2]
+
+# Merge data
+output2 <- data.frame(PassengerId = original.titanic.test$PassengerId)
+output2$Survived <- decision_result
+output2$Survived <- ifelse(output2$Survived > 0.5, 1, 0)
+
+write.csv(output, file= "Titanic_decision_tree_prediction.csv", row.names=FALSE)
+
+# Decision Tree Accuracy Result: 75.36%
+
+```
+
+
+
+```{r random forest}
+
+# Fix computing issue for random forest
+titanic.train$Embarked <- factor(titanic.train$Embarked, 
+                                 levels = c("S","Q","C"),
+                                 labels = c("S","Q","C")
+                                 )
+
+# random forest model using relevant feature
+random_forest_model <- randomForest(Survived ~ Sex + Pclass + Age,
+                                    data = titanic.train, 
+                                    ntree = 1000, # ntree = number of trees to grow
+                                    mtry=3) #  mtry = number of features to choose for bootstrap
+                                            #  sample
+
+random_forest_result <- predict(random_forest_model, 
+                                newdata = titanic.test,
+                                type="class")
+
+# Merge data
+output3 <- data.frame(PassengerId = original.titanic.test$PassengerId)
+output3$Survived <- random_forest_result
+
+write.csv(output, file= "Titanic_random_forest_prediction2.csv", row.names=FALSE)
+
+# Random Forest Accuracy Result: 75.83%
+```
+
 
