@@ -395,7 +395,7 @@ titanic.train$Embarked <- factor(titanic.train$Embarked,
                                  )
 
 # random forest model using relevant feature
-random_forest_model <- randomForest(Survived ~ Sex + Pclass + Age,
+random_forest_model <- randomForest(Survived ~ Sex + Pclass + Fare + Embarked + SibSp,
                                     data = titanic.train, 
                                     ntree = 1000, # ntree = number of trees to grow
                                     mtry=3) #  mtry = number of features to choose for bootstrap
@@ -411,7 +411,7 @@ output3$Survived <- random_forest_result
 
 write.csv(output, file= "Titanic_random_forest_prediction2.csv", row.names=FALSE)
 
-# Random Forest Accuracy Result: 75.83%
+# Random forest Accuracy Result: 75.83%
 ```
 
 
