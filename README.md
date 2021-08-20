@@ -7,7 +7,9 @@
 * Utilize R to analyze association between Survive and list of other features
 * Three predictive model were trained based on relevant features, the result on test set are following:
       - Logistic Regression : 75.83% accuracy
+      
       - Decision Tree : 74.40% accuracy
+      
       - Random Forest : 76.08% accuracy
 
 # Conclusion:
