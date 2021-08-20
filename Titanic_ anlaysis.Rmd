@@ -124,20 +124,6 @@ titanic.train <- arrange(titanic.train, PassengerId)
 ```
 
 
-```{r try median age}
-
-titanic.train$Age2 <- original.titanic.train$Age
-
-titanic.train %>% filter(is.na(Age2)) -> no_age2
-titanic.train %>% filter(!(is.na(Age2))) -> with_age2
-median_age2 <- median(with_age2$Age2)
-no_age2$Age2 <- median_age2
-
-tt <- rbind(no_age2,with_age2)
-tt %>% arrange(PassengerId)
-```
-
-
 # Analysis, analyze Survived vs other features
 
 ```{r number of Survived, echo=TRUE}
@@ -196,19 +182,33 @@ gender_RR <- (gender_table[2,2]/male_total)/(gender_table[2,1]/female_total)
 # Female are much more likely to survived in Titanic scenario.
 ```
 
-```{r Survived vs pclass and Gender, echo=TRUE}
+```{r Survived vs Pclass, echo=TRUE}
 
 # Pclass vs Suvive count and proportion of Pclass for two group Survive = 1 , Survive = 0 
 titanic.train %>% group_by(Survived, Pclass) %>% summarize(count = n()) %>%   
   mutate(Proportion_Survived = prop.table(count))
 
-# Visualizaiton
+# Visualizaiton Pclass vs Survived
+
+titanic.train %>% ggplot(., aes(x=Pclass, fill=Survived)) + geom_bar(position = "fill") +
+  labs(title="Survived vs Pclass and Gender \n",subtitle ="0 = Not Survived \n1 = Survived")
+
+# By observation, pClass seems to have association with Survived. But we also want to take
+# gender into account.
+
+
+# Visualizaiton Pclass,Gender vs Survived
 
 titanic.train %>% ggplot(., aes(x=Sex, fill=Survived)) + geom_bar() + facet_wrap(~Pclass) +
   labs(title="Survived vs Pclass and Gender \n",subtitle ="0 = Not Survived \n1 = Survived")
 
 # By observation, pClass seems to have association with Survived. But we also want to take
 # gender into account.
+
+# proportion of Gender in each Pclass
+
+titanic.train %>% group_by(Pclass,Sex) %>%
+  summarize(count = n()) %>% mutate(Proportion_Pclass = prop.table(count))
 
 # chi-square test with fixed gender, test whethere Pclass associated with Survived
 
@@ -220,11 +220,6 @@ chisq.test(x=titanic.female$Survived, y = titanic.female$Pclass)
 
 # Both test's result reject null hypothesis and we can conclude there's association between
 # Pclass and Survived.
-
-# proportion of Gender in each Pclass
-
-titanic.train %>% group_by(Pclass,Sex) %>%
-  summarize(count = n()) %>% mutate(Proportion_Pclass = prop.table(count))
 
 
 ```
@@ -302,17 +297,21 @@ chisq.test(titanic.train$Embarked,titanic.train$Survived)
 chisq.test(titanic.train$Embarked,titanic.train$Survived)
 chisq.test(titanic.train$Embarked,titanic.train$Pclass)
 
-titanic.train %>% ggplot(., aes(x=Embarked,fill=Survived)) + geom_bar(position = "dodge") +
+titanic.train %>% ggplot(., aes(x=Embarked,fill=Survived)) + geom_bar(position="fill") +
   labs(title = "Survived vs Embarked")
   
 
-# From observation, Embarked is associated with Survived. However, Embarked is also
-# associated with Gender and Pclass.
-# People embarked at port Q,S are mostly in Third class.
-# People embarked at port C are mostly in First class.
+# From observation, Embarked is associated with Survived, Embarked at Port C
+# is significant higher than at Port Q and S.
 
-titanic.train %>% ggplot(., aes(x=Embarked,fill=Pclass)) + geom_bar(position = "dodge")
 
+# Check Pclass proportion at each Port
+
+titanic.train %>% ggplot(., aes(x=Embarked,fill=Pclass)) + geom_bar(position = "fill") +
+  facet_wrap(~Survived)
+
+# People embarked at port C are mostly in first class. This is very likely the reason why
+# embarked at port C have significant higher chance to survive.
 ```
 
 # Building Model
@@ -359,7 +358,7 @@ titanic.test[titanic.test$PassengerId==1044,]$Fare <- median(titanic.test$Fare, 
 
 # Logistic model, use relevant feature and 
 # variable are selected by backward model selection
-pred_log.model <- glm(Survived ~ Sex + SibSp + Age + Pclass,
+pred_log.model <- glm(Survived ~ Sex + SibSp + Age + Pclass + Embarked,
                       data = titanic.train, family = "binomial")
 summary(pred_log.model)
 
@@ -396,7 +395,7 @@ output2$Survived <- ifelse(output2$Survived > 0.5, 1, 0)
 
 write.csv(output2, file= "Titanic_decision_tree_prediction.csv", row.names=FALSE)
 
-# Decision Tree Accuracy Result: 75.36%
+# Decision Tree Accuracy Result: 74.40%
 
 ```
 
@@ -427,21 +426,17 @@ output3$Survived <- random_forest_result
 
 write.csv(output3, file= "Titanic_random_forest_prediction.csv", row.names=FALSE)
 
-# Random forest Accuracy Result: 75.83%
+# Random forest Accuracy Result: 76.08%
 ```
 
-```{r}
-diff_sum <- 0
-for (i in 1:418){
-  if (output2$Survived[i] != output3$Survived[i]){
-    diff_sum <- diff_sum + 1
-  }
-  else{
-    next
-  }
-}
+# Conclusion:
+
+- List of features are found association with whether passenger survive are following:
+  (Sex, Pclass, Fare, Age, Embarked, SibSp)
   
-```
-
-
-
+- Being female greatly increase chance of survive
+- Higher economical class greatly increase chance of survive
+- Higher Ticket Fare slightly increase chance of survive
+- Younger Age slightly increase the chance of survive
+- Embarked at Port Cherbourg moderately increase the chance of survive
+- Less sibing slightly increase chance of survive
