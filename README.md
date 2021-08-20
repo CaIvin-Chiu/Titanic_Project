@@ -5,9 +5,9 @@
 
 * Goal : Analyze and Predict what type of passengers are most likely to survive in this scenario
 * Utilize R to analyze association between Survive and list of other features
-* Three predictive model were trained based on relevant features, the result on test set are following:
+* Three predictive model were trained based on relevant features, the result on test set are following:<br></br>
       - Logistic Regression : 75.83% accuracy <br></br>
-      - Decision Tree : 74.40% accuracy\n
+      - Decision Tree : 74.40% accuracy <br></br>
       - Random Forest : 76.08% accuracy
 
 # Conclusion:
